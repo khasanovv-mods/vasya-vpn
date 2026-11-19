@@ -16,14 +16,38 @@ from rollypay import RollyPay
 
 log = logging.getLogger(__name__)
 
-db: Database = None  # type: ignore[assignment]
-h1: H1Cluster = None  # type: ignore[assignment]
-rollypay: RollyPay = None  # type: ignore[assignment]
+
+def _build_cluster() -> H1Cluster:
+    nodes = [
+        H1CloudClient(
+            name=n["name"], base_url=n["api_url"], token=n["token"],
+            sub_url_template=n["sub_url"],
+            verify_ssl=config.H1_VERIFY_SSL, timeout=config.H1_REQUEST_TIMEOUT,
+        )
+        for n in config.H1_NODES
+    ]
+    return H1Cluster(nodes)
 
 
-def init(db_: Database, h1_: H1Cluster, rollypay_: RollyPay) -> None:
+# Объекты создаются при импорте модуля: все, кто делает `from services import db`,
+# получают один и тот же экземпляр (пересоздание через init() ломало ссылки).
+db: Database = Database(config.DB_PATH)
+h1: H1Cluster = _build_cluster()
+rollypay: RollyPay = RollyPay(config.RP_API_KEY, config.RP_SIGNING_SECRET,
+                              config.RP_BASE_URL, config.RP_TEST_MODE)
+
+
+async def init(db_: Optional[Database] = None, h1_: Optional[H1Cluster] = None,
+               rollypay_: Optional[RollyPay] = None) -> None:
+    """Подменяет объекты (для тестов) и инициализирует БД. В проде вызывается без аргументов."""
     global db, h1, rollypay
-    db, h1, rollypay = db_, h1_, rollypay_
+    if db_ is not None:
+        db = db_
+    if h1_ is not None:
+        h1 = h1_
+    if rollypay_ is not None:
+        rollypay = rollypay_
+    await db.init()
 
 
 # ---------- вспомогательное ----------
