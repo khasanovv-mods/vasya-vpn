@@ -17,6 +17,8 @@ from scheduler import start_loops
 from webhooks import run_webhook_server
 import services
 
+log = logging.getLogger(__name__)
+
 
 async def main() -> None:
     logging.basicConfig(
