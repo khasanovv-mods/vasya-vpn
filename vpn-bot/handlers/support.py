@@ -21,7 +21,10 @@ class SupportFSM(StatesGroup):
     waiting_message = State()
 
 
-@router.message(F.text == "🛟 Поддержка", F.from_user.exists())
+MENU_TEXTS = {"🚀 Подписка", "👤 Профиль", "👥 Реферальная программа", "🛟 Поддержка", "❓ Инструкция"}
+
+
+@router.message(F.text == "🛟 Поддержка", F.from_user)
 async def enter_support(message: Message, state: FSMContext) -> None:
     await state.set_state(SupportFSM.waiting_message)
     kb = support_stop_kb() if config.ADMIN_IDS else None
@@ -42,10 +45,7 @@ async def cancel(message: Message, state: FSMContext) -> None:
     await message.answer("Готово. Главное меню — кнопками.", reply_markup=cancelled_kb())
 
 
-MENU_TEXTS = {"🚀 Подписка", "👤 Профиль", "👥 Реферальная программа", "🛟 Поддержка", "❓ Инструкция"}
-
-
-@router.message(StateFilter(SupportFSM.waiting_message), F.from_user.exists(),
+@router.message(StateFilter(SupportFSM.waiting_message), F.from_user,
                 (F.text | F.photo | F.document) & ~F.text.in_(MENU_TEXTS))
 async def support_message(message: Message, state: FSMContext) -> None:
     if not message.from_user:
