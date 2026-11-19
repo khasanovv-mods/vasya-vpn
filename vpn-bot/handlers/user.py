@@ -17,10 +17,6 @@ log = logging.getLogger(__name__)
 router = Router(name="user")
 
 
-def _user_display_name(user: dict) -> str:
-    return html.escape(user.get("full_name") or "друг")
-
-
 @router.message(CommandStart())
 async def cmd_start(message: Message, command: CommandObject, state: FSMContext) -> None:
     if not message.from_user:
@@ -39,7 +35,6 @@ async def cmd_start(message: Message, command: CommandObject, state: FSMContext)
             fresh = user["referrer_id"] is None
             if fresh and await db.set_referrer(tg.id, referrer_id):
                 try:
-                    ref = await db.get_user(referrer_id)
                     name = tg.first_name or "друг"
                     await message.bot.send_message(
                         referrer_id, texts.REF_JOINED.format(name=html.escape(name))
@@ -70,7 +65,7 @@ async def _guard(message: Message) -> bool:
     return True
 
 
-@router.message(F.text == "🚀 Подписка", F.from_user.exists())
+@router.message(F.text == "🚀 Подписка", F.from_user)
 async def show_subscription(message: Message, state: FSMContext) -> None:
     if not await _guard(message):
         return
@@ -85,7 +80,7 @@ async def show_subscription(message: Message, state: FSMContext) -> None:
     )
 
 
-@router.message(F.text == "👤 Профиль", F.from_user.exists())
+@router.message(F.text == "👤 Профиль", F.from_user)
 async def show_profile(message: Message, state: FSMContext) -> None:
     if not await _guard(message):
         return
@@ -95,10 +90,10 @@ async def show_profile(message: Message, state: FSMContext) -> None:
     if not user:
         user = await db.get_or_create_user(tg.id, tg.username or "", tg.first_name or "")
     sub = await db.active_sub(tg.id)
-    refs = await db.db.execute(
+    cur = await db.db.execute(
         "SELECT COUNT(*) c FROM users WHERE referrer_id=?", (tg.id,)
     )
-    row = await refs.fetchone()
+    row = await cur.fetchone()
     refs_count = row["c"] if row else 0
     text = texts.PROFILE.format(
         tg_id=tg.id,
@@ -111,7 +106,7 @@ async def show_profile(message: Message, state: FSMContext) -> None:
     await message.answer(text, reply_markup=profile_kb())
 
 
-@router.message(F.text == "👥 Реферальная программа", F.from_user.exists())
+@router.message(F.text == "👥 Реферальная программа", F.from_user)
 async def show_referral(message: Message, state: FSMContext) -> None:
     if not await _guard(message):
         return
@@ -137,7 +132,7 @@ async def show_referral(message: Message, state: FSMContext) -> None:
     )
 
 
-@router.message(F.text == "❓ Инструкция", F.from_user.exists())
+@router.message(F.text == "❓ Инструкция", F.from_user)
 async def show_instruction(message: Message, state: FSMContext) -> None:
     if not await _guard(message):
         return
